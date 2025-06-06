@@ -1,77 +1,109 @@
 #include <stdio.h>
 
-#define TAMANHO_TABULEIRO 10
-#define TAMANHO_NAVIO 3
+#define TAM 10
+#define TAM_HAB 5
+#define TAM_NAVIO 3
 
-// Função auxiliar para verificar se há sobreposição
-int temSobreposicao(int tabuleiro[TAMANHO_TABULEIRO][TAMANHO_TABULEIRO], int coordenadas[3][2]) {
-    for (int i = 0; i < TAMANHO_NAVIO; i++) {
-        int linha = coordenadas[i][0];
-        int coluna = coordenadas[i][1];
-        if (tabuleiro[linha][coluna] != 0) {
-            return 1; // sobreposição
-        }
-    }
-    return 0;
+// Função para inicializar o tabuleiro com 0 (água)
+void inicializarTabuleiro(int tab[TAM][TAM]) {
+    for (int i = 0; i < TAM; i++)
+        for (int j = 0; j < TAM; j++)
+            tab[i][j] = 0;
 }
 
-// Função auxiliar para marcar navio no tabuleiro
-void marcarNavio(int tabuleiro[TAMANHO_TABULEIRO][TAMANHO_TABULEIRO], int coordenadas[3][2]) {
-    for (int i = 0; i < TAMANHO_NAVIO; i++) {
-        int linha = coordenadas[i][0];
-        int coluna = coordenadas[i][1];
-        tabuleiro[linha][coluna] = 3;
+// Verifica sobreposição e posiciona navio no tabuleiro
+int posicionarNavio(int tab[TAM][TAM], int coords[3][2]) {
+    for (int i = 0; i < TAM_NAVIO; i++) {
+        int l = coords[i][0], c = coords[i][1];
+        if (l < 0 || l >= TAM || c < 0 || c >= TAM || tab[l][c] != 0)
+            return 0; // erro
+    }
+    for (int i = 0; i < TAM_NAVIO; i++)
+        tab[coords[i][0]][coords[i][1]] = 3;
+    return 1;
+}
+
+// Gera matriz de habilidade Cone (5x5)
+void gerarCone(int matriz[TAM_HAB][TAM_HAB]) {
+    for (int i = 0; i < TAM_HAB; i++)
+        for (int j = 0; j < TAM_HAB; j++)
+            matriz[i][j] = (j >= 2 - i && j <= 2 + i) ? 1 : 0;
+}
+
+// Gera matriz de habilidade Cruz (5x5)
+void gerarCruz(int matriz[TAM_HAB][TAM_HAB]) {
+    for (int i = 0; i < TAM_HAB; i++)
+        for (int j = 0; j < TAM_HAB; j++)
+            matriz[i][j] = (i == 2 || j == 2) ? 1 : 0;
+}
+
+// Gera matriz de habilidade Octaedro (losango 5x5)
+void gerarOctaedro(int matriz[TAM_HAB][TAM_HAB]) {
+    for (int i = 0; i < TAM_HAB; i++)
+        for (int j = 0; j < TAM_HAB; j++)
+            matriz[i][j] = (abs(i - 2) + abs(j - 2) <= 2) ? 1 : 0;
+}
+
+// Sobrepõe matriz de habilidade no tabuleiro com valor 5
+void aplicarHabilidade(int tab[TAM][TAM], int habilidade[TAM_HAB][TAM_HAB], int centroLinha, int centroColuna) {
+    for (int i = 0; i < TAM_HAB; i++) {
+        for (int j = 0; j < TAM_HAB; j++) {
+            if (habilidade[i][j] == 1) {
+                int l = centroLinha - 2 + i;
+                int c = centroColuna - 2 + j;
+                if (l >= 0 && l < TAM && c >= 0 && c < TAM && tab[l][c] == 0) {
+                    tab[l][c] = 5;
+                }
+            }
+        }
+    }
+}
+
+// Exibe o tabuleiro com legenda
+void exibirTabuleiro(int tab[TAM][TAM]) {
+    printf("\n=== TABULEIRO FINAL ===\n");
+    printf("Legenda: 0=Água  3=Navio  5=Habilidade\n\n");
+    for (int i = 0; i < TAM; i++) {
+        for (int j = 0; j < TAM; j++) {
+            printf("%d ", tab[i][j]);
+        }
+        printf("\n");
     }
 }
 
 int main() {
-    // Inicializa tabuleiro com água (0)
-    int tabuleiro[TAMANHO_TABULEIRO][TAMANHO_TABULEIRO] = {0};
+    int tabuleiro[TAM][TAM];
+    inicializarTabuleiro(tabuleiro);
 
-    int sobreposicao = 0;
+    // --- POSICIONAMENTO DOS NAVIOS ---
+    int navio1[3][2] = {{2, 4}, {2, 5}, {2, 6}};     // Horizontal
+    int navio2[3][2] = {{5, 7}, {6, 7}, {7, 7}};     // Vertical
+    int navio3[3][2] = {{0, 0}, {1, 1}, {2, 2}};     // Diagonal ↘
+    int navio4[3][2] = {{0, 9}, {1, 8}, {2, 7}};     // Diagonal ↙
 
-    // --- NAVIO 1: Horizontal (linha 2, colunas 4 a 6) ---
-    int navio1[3][2] = {{2, 4}, {2, 5}, {2, 6}};
-    // --- NAVIO 2: Vertical (coluna 7, linhas 5 a 7) ---
-    int navio2[3][2] = {{5, 7}, {6, 7}, {7, 7}};
-    // --- NAVIO 3: Diagonal Principal (↘) iniciando em (0, 0) ---
-    int navio3[3][2] = {{0, 0}, {1, 1}, {2, 2}};
-    // --- NAVIO 4: Diagonal Secundária (↙) iniciando em (0, 9) ---
-    int navio4[3][2] = {{0, 9}, {1, 8}, {2, 7}};
-
-    // Validação e marcação de todos os navios
-    int *navios[] = {&navio1[0][0], &navio2[0][0], &navio3[0][0], &navio4[0][0]};
-    for (int n = 0; n < 4; n++) {
-        int (*navio)[2] = (int (*)[2])navios[n];
-
-        // Verifica se está dentro dos limites
-        for (int i = 0; i < TAMANHO_NAVIO; i++) {
-            int linha = navio[i][0];
-            int coluna = navio[i][1];
-            if (linha < 0 || linha >= TAMANHO_TABULEIRO || coluna < 0 || coluna >= TAMANHO_TABULEIRO) {
-                printf("Erro: Navio %d ultrapassa os limites do tabuleiro.\n", n + 1);
-                return 1;
-            }
-        }
-
-        // Verifica sobreposição
-        if (temSobreposicao(tabuleiro, navio)) {
-            printf("Erro: Sobreposição detectada no navio %d.\n", n + 1);
-            return 1;
-        }
-
-        // Marca o navio no tabuleiro
-        marcarNavio(tabuleiro, navio);
+    // Validar e posicionar todos
+    if (!posicionarNavio(tabuleiro, navio1) ||
+        !posicionarNavio(tabuleiro, navio2) ||
+        !posicionarNavio(tabuleiro, navio3) ||
+        !posicionarNavio(tabuleiro, navio4)) {
+        printf("Erro ao posicionar navios.\n");
+        return 1;
     }
 
-    // Exibe o tabuleiro final
-    printf("=== TABULEIRO FINAL ===\n");
-    for (int linha = 0; linha < TAMANHO_TABULEIRO; linha++) {
-        for (int coluna = 0; coluna < TAMANHO_TABULEIRO; coluna++) {
-            printf("%d ", tabuleiro[linha][coluna]);
-        }
-        printf("\n");
-    }
+    // --- MATRIZES DE HABILIDADE ---
+    int cone[TAM_HAB][TAM_HAB], cruz[TAM_HAB][TAM_HAB], octaedro[TAM_HAB][TAM_HAB];
+
+    gerarCone(cone);
+    gerarCruz(cruz);
+    gerarOctaedro(octaedro);
+
+    // --- POSIÇÕES DAS HABILIDADES ---
+    aplicarHabilidade(tabuleiro, cone, 4, 4);       // Cone centrado em (4,4)
+    aplicarHabilidade(tabuleiro, cruz, 6, 2);       // Cruz centrada em (6,2)
+    aplicarHabilidade(tabuleiro, octaedro, 6, 6);   // Octaedro centrado em (6,6)
+
+    // --- EXIBIR TABULEIRO ---
+    exibirTabuleiro(tabuleiro);
 
     return 0;
 }
